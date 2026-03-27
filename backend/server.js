@@ -1,9 +1,20 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
+const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
+
+const io = new Server(server, {
+  path: '/api/realtime',
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
 
 // Middleware
 app.use(cors());
@@ -14,6 +25,9 @@ let tasks = [
   { id: uuidv4(), title: 'Learn Express', description: 'Study Express.js fundamentals', completed: false },
   { id: uuidv4(), title: 'Build API', description: 'Create REST API endpoints', completed: false }
 ];
+
+// In-memory whiteboard strokes for new clients syncing in.
+let whiteboardStrokes = [];
 
 // Routes
 
@@ -88,6 +102,27 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-app.listen(PORT, () => {
+io.on('connection', (socket) => {
+  socket.emit('whiteboard:init', whiteboardStrokes);
+
+  socket.on('whiteboard:draw', (stroke) => {
+    if (!stroke) return;
+
+    whiteboardStrokes.push(stroke);
+
+    if (whiteboardStrokes.length > 10000) {
+      whiteboardStrokes = whiteboardStrokes.slice(-10000);
+    }
+
+    socket.broadcast.emit('whiteboard:draw', stroke);
+  });
+
+  socket.on('whiteboard:clear', () => {
+    whiteboardStrokes = [];
+    io.emit('whiteboard:clear');
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`Task Manager API running on http://localhost:${PORT}`);
 });

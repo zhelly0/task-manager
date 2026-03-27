@@ -3,6 +3,7 @@ import axios from 'axios';
 import './App.css';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
+import Whiteboard from './components/Whiteboard';
 
 interface Task {
   id: string;
@@ -12,6 +13,7 @@ interface Task {
 }
 
 const App: React.FC = () => {
+  const [activeView, setActiveView] = useState<'tasks' | 'whiteboard'>('tasks');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,23 +78,45 @@ const App: React.FC = () => {
   return (
     <div className="App">
       <header className="app-header">
-        <h1>📋 Task Manager</h1>
-        <p>Stay organized and productive</p>
+        <h1>📋 Task Manager + 🧠 Live Whiteboard</h1>
+        <p>Stay organized and brainstorm together in real time</p>
       </header>
 
       <main className="app-main">
+        <div className="view-switcher">
+          <button
+            type="button"
+            className={`view-tab ${activeView === 'tasks' ? 'active' : ''}`}
+            onClick={() => setActiveView('tasks')}
+          >
+            Tasks
+          </button>
+          <button
+            type="button"
+            className={`view-tab ${activeView === 'whiteboard' ? 'active' : ''}`}
+            onClick={() => setActiveView('whiteboard')}
+          >
+            Live Whiteboard
+          </button>
+        </div>
+
         {error && <div className="error-message">{error}</div>}
-        
-        <TaskForm onAddTask={addTask} />
-        
-        {loading ? (
-          <p className="loading">Loading tasks...</p>
+
+        {activeView === 'tasks' ? (
+          <>
+            <TaskForm onAddTask={addTask} />
+            {loading ? (
+              <p className="loading">Loading tasks...</p>
+            ) : (
+              <TaskList
+                tasks={tasks}
+                onDeleteTask={deleteTask}
+                onToggleCompletion={toggleTaskCompletion}
+              />
+            )}
+          </>
         ) : (
-          <TaskList
-            tasks={tasks}
-            onDeleteTask={deleteTask}
-            onToggleCompletion={toggleTaskCompletion}
-          />
+          <Whiteboard />
         )}
       </main>
     </div>
