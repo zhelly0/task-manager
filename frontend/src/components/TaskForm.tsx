@@ -14,12 +14,12 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!title.trim()) {
       alert('Please enter a task title');
       return;
     }
-    
+
     onAddTask(title, description, priority, dueDate || null);
     setTitle('');
     setDescription('');
@@ -38,7 +38,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
           className="form-input"
         />
       </div>
-      
+
       <div className="form-group">
         <textarea
           placeholder="Task description (optional)..."
@@ -73,7 +73,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
           />
         </div>
       </div>
-      
+
       <button type="submit" className="btn btn-primary">
         + Add Task
       </button>

@@ -55,7 +55,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onDelete, onToggleCompletion,
           aria-label={`Mark "${task.title}" as ${task.completed ? 'incomplete' : 'complete'}`}
         />
       </div>
-      
+
       <div className="task-content">
         {editing ? (
           <div className="task-edit-form">
@@ -94,7 +94,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onDelete, onToggleCompletion,
           </>
         )}
       </div>
-      
+
       <div className="task-actions">
         {!editing && (
           <button

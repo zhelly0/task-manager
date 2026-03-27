@@ -3,10 +3,66 @@ const http = require('http');
 const cors = require('cors');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
+
+// ── Persistence helpers ──────────────────────────────────────────────
+const DATA_DIR = path.join(__dirname, 'data');
+const TASKS_FILE = path.join(DATA_DIR, 'tasks.json');
+const WHITEBOARD_FILE = path.join(DATA_DIR, 'whiteboard.json');
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function loadJSON(filePath, fallback) {
+  try {
+    if (fs.existsSync(filePath)) {
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.error(`Failed to load ${filePath}:`, err.message);
+  }
+  return fallback;
+}
+
+function saveJSON(filePath, data) {
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.error(`Failed to save ${filePath}:`, err.message);
+  }
+}
+
+// Debounce writes so rapid changes don't hammer the disk
+const saveTimers = {};
+function debouncedSave(filePath, getData, delay = 500) {
+  if (saveTimers[filePath]) clearTimeout(saveTimers[filePath]);
+  saveTimers[filePath] = setTimeout(() => saveJSON(filePath, getData()), delay);
+}
+
+function saveTasks() {
+  debouncedSave(TASKS_FILE, () => tasks);
+}
+
+function saveWhiteboard() {
+  debouncedSave(WHITEBOARD_FILE, () => whiteboardStrokes);
+}
+
+// ── Load persisted state ─────────────────────────────────────────────
+const defaultTasks = [
+  { id: uuidv4(), title: 'Learn Express', description: 'Study Express.js fundamentals', completed: false, priority: 'medium', dueDate: null, createdAt: new Date().toISOString() },
+  { id: uuidv4(), title: 'Build API', description: 'Create REST API endpoints', completed: false, priority: 'high', dueDate: null, createdAt: new Date().toISOString() }
+];
+
+let tasks = loadJSON(TASKS_FILE, defaultTasks);
+let whiteboardStrokes = loadJSON(WHITEBOARD_FILE, []);
 
 const io = new Server(server, {
   path: '/api/realtime',
@@ -20,33 +76,24 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
-// In-memory task storage (in production, use a database)
-let tasks = [
-  { id: uuidv4(), title: 'Learn Express', description: 'Study Express.js fundamentals', completed: false, priority: 'medium', dueDate: null, createdAt: new Date().toISOString() },
-  { id: uuidv4(), title: 'Build API', description: 'Create REST API endpoints', completed: false, priority: 'high', dueDate: null, createdAt: new Date().toISOString() }
-];
-
-// In-memory whiteboard strokes for new clients syncing in.
-let whiteboardStrokes = [];
-
 // Routes
 
 // GET all tasks (supports ?search= and ?priority= query params)
 app.get('/api/tasks', (req, res) => {
   let result = tasks;
-  
+
   if (req.query.search) {
     const search = req.query.search.toLowerCase();
-    result = result.filter(t => 
-      t.title.toLowerCase().includes(search) || 
+    result = result.filter(t =>
+      t.title.toLowerCase().includes(search) ||
       t.description.toLowerCase().includes(search)
     );
   }
-  
+
   if (req.query.priority) {
     result = result.filter(t => t.priority === req.query.priority);
   }
-  
+
   res.json(result);
 });
 
@@ -62,13 +109,13 @@ app.get('/api/tasks/:id', (req, res) => {
 // POST a new task
 app.post('/api/tasks', (req, res) => {
   const { title, description, priority, dueDate } = req.body;
-  
+
   if (!title) {
     return res.status(400).json({ error: 'Title is required' });
   }
 
   const validPriorities = ['low', 'medium', 'high'];
-  
+
   const newTask = {
     id: uuidv4(),
     title,
@@ -78,19 +125,20 @@ app.post('/api/tasks', (req, res) => {
     dueDate: dueDate || null,
     createdAt: new Date().toISOString()
   };
-  
+
   tasks.push(newTask);
+  saveTasks();
   res.status(201).json(newTask);
 });
 
 // PUT update a task (mark as completed or update details)
 app.put('/api/tasks/:id', (req, res) => {
   const task = tasks.find(t => t.id === req.params.id);
-  
+
   if (!task) {
     return res.status(404).json({ error: 'Task not found' });
   }
-  
+
   if (req.body.title !== undefined) task.title = req.body.title;
   if (req.body.description !== undefined) task.description = req.body.description;
   if (req.body.completed !== undefined) task.completed = req.body.completed;
@@ -99,19 +147,21 @@ app.put('/api/tasks/:id', (req, res) => {
     if (validPriorities.includes(req.body.priority)) task.priority = req.body.priority;
   }
   if (req.body.dueDate !== undefined) task.dueDate = req.body.dueDate;
-  
+
+  saveTasks();
   res.json(task);
 });
 
 // DELETE a task
 app.delete('/api/tasks/:id', (req, res) => {
   const index = tasks.findIndex(t => t.id === req.params.id);
-  
+
   if (index === -1) {
     return res.status(404).json({ error: 'Task not found' });
   }
-  
+
   const deletedTask = tasks.splice(index, 1);
+  saveTasks();
   res.json(deletedTask[0]);
 });
 
@@ -138,11 +188,13 @@ io.on('connection', (socket) => {
       whiteboardStrokes = whiteboardStrokes.slice(-10000);
     }
 
+    saveWhiteboard();
     socket.broadcast.emit('whiteboard:draw', stroke);
   });
 
   socket.on('whiteboard:clear', () => {
     whiteboardStrokes = [];
+    saveWhiteboard();
     io.emit('whiteboard:clear');
   });
 });
