@@ -1,20 +1,26 @@
 import React from 'react';
 import TaskItem from './TaskItem';
 
+type Priority = 'low' | 'medium' | 'high';
+
 interface Task {
   id: string;
   title: string;
   description: string;
   completed: boolean;
+  priority: Priority;
+  dueDate: string | null;
+  createdAt: string;
 }
 
 interface TaskListProps {
   tasks: Task[];
   onDeleteTask: (id: string) => void;
   onToggleCompletion: (id: string) => void;
+  onEditTask: (id: string, updates: Partial<Task>) => void;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ tasks, onDeleteTask, onToggleCompletion }) => {
+const TaskList: React.FC<TaskListProps> = ({ tasks, onDeleteTask, onToggleCompletion, onEditTask }) => {
   if (tasks.length === 0) {
     return (
       <div className="empty-state">
@@ -38,6 +44,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onDeleteTask, onToggleComple
                 task={task}
                 onDelete={onDeleteTask}
                 onToggleCompletion={onToggleCompletion}
+                onEdit={onEditTask}
               />
             ))}
           </div>
@@ -54,6 +61,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onDeleteTask, onToggleComple
                 task={task}
                 onDelete={onDeleteTask}
                 onToggleCompletion={onToggleCompletion}
+                onEdit={onEditTask}
               />
             ))}
           </div>

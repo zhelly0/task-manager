@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 
+type Priority = 'low' | 'medium' | 'high';
+
 interface TaskFormProps {
-  onAddTask: (title: string, description: string) => void;
+  onAddTask: (title: string, description: string, priority: Priority, dueDate: string | null) => void;
 }
 
 const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState<Priority>('medium');
+  const [dueDate, setDueDate] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,9 +20,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
       return;
     }
     
-    onAddTask(title, description);
+    onAddTask(title, description, priority, dueDate || null);
     setTitle('');
     setDescription('');
+    setPriority('medium');
+    setDueDate('');
   };
 
   return (
@@ -41,6 +47,31 @@ const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
           className="form-textarea"
           rows={3}
         />
+      </div>
+
+      <div className="form-row">
+        <div className="form-group form-group-half">
+          <label className="form-label">Priority</label>
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value as Priority)}
+            className="form-input form-select"
+          >
+            <option value="low">🟢 Low</option>
+            <option value="medium">🟡 Medium</option>
+            <option value="high">🔴 High</option>
+          </select>
+        </div>
+
+        <div className="form-group form-group-half">
+          <label className="form-label">Due Date</label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="form-input"
+          />
+        </div>
       </div>
       
       <button type="submit" className="btn btn-primary">

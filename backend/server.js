@@ -22,8 +22,8 @@ app.use(express.json());
 
 // In-memory task storage (in production, use a database)
 let tasks = [
-  { id: uuidv4(), title: 'Learn Express', description: 'Study Express.js fundamentals', completed: false },
-  { id: uuidv4(), title: 'Build API', description: 'Create REST API endpoints', completed: false }
+  { id: uuidv4(), title: 'Learn Express', description: 'Study Express.js fundamentals', completed: false, priority: 'medium', dueDate: null, createdAt: new Date().toISOString() },
+  { id: uuidv4(), title: 'Build API', description: 'Create REST API endpoints', completed: false, priority: 'high', dueDate: null, createdAt: new Date().toISOString() }
 ];
 
 // In-memory whiteboard strokes for new clients syncing in.
@@ -31,9 +31,23 @@ let whiteboardStrokes = [];
 
 // Routes
 
-// GET all tasks
+// GET all tasks (supports ?search= and ?priority= query params)
 app.get('/api/tasks', (req, res) => {
-  res.json(tasks);
+  let result = tasks;
+  
+  if (req.query.search) {
+    const search = req.query.search.toLowerCase();
+    result = result.filter(t => 
+      t.title.toLowerCase().includes(search) || 
+      t.description.toLowerCase().includes(search)
+    );
+  }
+  
+  if (req.query.priority) {
+    result = result.filter(t => t.priority === req.query.priority);
+  }
+  
+  res.json(result);
 });
 
 // GET a single task by ID
@@ -47,17 +61,22 @@ app.get('/api/tasks/:id', (req, res) => {
 
 // POST a new task
 app.post('/api/tasks', (req, res) => {
-  const { title, description } = req.body;
+  const { title, description, priority, dueDate } = req.body;
   
   if (!title) {
     return res.status(400).json({ error: 'Title is required' });
   }
+
+  const validPriorities = ['low', 'medium', 'high'];
   
   const newTask = {
     id: uuidv4(),
     title,
     description: description || '',
-    completed: false
+    completed: false,
+    priority: validPriorities.includes(priority) ? priority : 'medium',
+    dueDate: dueDate || null,
+    createdAt: new Date().toISOString()
   };
   
   tasks.push(newTask);
@@ -75,6 +94,11 @@ app.put('/api/tasks/:id', (req, res) => {
   if (req.body.title !== undefined) task.title = req.body.title;
   if (req.body.description !== undefined) task.description = req.body.description;
   if (req.body.completed !== undefined) task.completed = req.body.completed;
+  if (req.body.priority !== undefined) {
+    const validPriorities = ['low', 'medium', 'high'];
+    if (validPriorities.includes(req.body.priority)) task.priority = req.body.priority;
+  }
+  if (req.body.dueDate !== undefined) task.dueDate = req.body.dueDate;
   
   res.json(task);
 });
